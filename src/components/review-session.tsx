@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, RotateCcw } from "lucide-react"
-import type { Card as FlashCard } from "@/app/page"
+import type { Card as FlashCard } from "@/components/main-dashboard"
 
 // Types
 interface ReviewSessionProps {

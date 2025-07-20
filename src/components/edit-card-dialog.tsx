@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import type { Card as FlashCard } from "@/app/page"
+import type { Card as FlashCard } from "@/components/main-dashboard"
 
 // Types
 interface EditCardDialogProps {

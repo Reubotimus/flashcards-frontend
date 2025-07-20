@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Edit, Trash2, Play, Clock } from "lucide-react"
-import type { Deck, Card as FlashCard } from "@/app/page"
+import type { Deck, Card as FlashCard } from "@/components/main-dashboard"
 import { CreateCardDialog } from "@/components/create-card-dialog"
 import { EditCardDialog } from "@/components/edit-card-dialog"
 
