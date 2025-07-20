@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Play, Trash2, Edit, Clock } from "lucide-react"
-import type { Deck } from "@/app/page"
+import type { Deck } from "@/components/main-dashboard"
 
 interface DeckCardProps {
   deck: Deck
