@@ -18,14 +18,38 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
 
+// Types
 interface CreateDeckDialogProps {
   onCreateDeck: (name: string, description: string) => void
 }
 
-export function CreateDeckDialog({ onCreateDeck }: CreateDeckDialogProps) {
+// Model & Controller
+function useCreateDeckDialogController({
+  onCreateDeck,
+}: {
+  onCreateDeck: (name: string, description: string) => void
+}) {
+  // Model
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+
+  // Controller
+  const handleOpenChange = (value: boolean) => {
+    setOpen(value)
+  }
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value)
+  }
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDescription(e.target.value)
+  }
+
+  const handleCancel = () => {
+    setOpen(false)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,8 +61,33 @@ export function CreateDeckDialog({ onCreateDeck }: CreateDeckDialogProps) {
     }
   }
 
+  return {
+    open,
+    name,
+    description,
+    handleOpenChange,
+    handleNameChange,
+    handleDescriptionChange,
+    handleCancel,
+    handleSubmit,
+  }
+}
+
+// View
+export function CreateDeckDialog({ onCreateDeck }: CreateDeckDialogProps) {
+  const {
+    open,
+    name,
+    description,
+    handleOpenChange,
+    handleNameChange,
+    handleDescriptionChange,
+    handleCancel,
+    handleSubmit,
+  } = useCreateDeckDialogController({ onCreateDeck })
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -57,7 +106,7 @@ export function CreateDeckDialog({ onCreateDeck }: CreateDeckDialogProps) {
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={handleNameChange}
                 placeholder="e.g., Spanish Vocabulary"
                 required
               />
@@ -67,14 +116,14 @@ export function CreateDeckDialog({ onCreateDeck }: CreateDeckDialogProps) {
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={handleDescriptionChange}
                 placeholder="Brief description of what this deck covers..."
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
             <Button type="submit">Create Deck</Button>

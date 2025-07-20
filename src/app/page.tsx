@@ -8,6 +8,7 @@ import { DeckCard } from "@/components/deck-card"
 import { ReviewSession } from "@/components/review-session"
 import { DeckDetail } from "@/components/deck-detail"
 
+// Types
 export interface Card {
   id: string
   front: string
@@ -26,7 +27,8 @@ export interface Deck {
   createdAt: Date
 }
 
-export default function HomePage() {
+// Model
+const useFlashcardModel = () => {
   const [decks, setDecks] = useState<Deck[]>([
     {
       id: "1",
@@ -77,6 +79,27 @@ export default function HomePage() {
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null)
   const [reviewCards, setReviewCards] = useState<Card[]>([])
 
+  return {
+    decks,
+    setDecks,
+    currentView,
+    setCurrentView,
+    selectedDeck,
+    setSelectedDeck,
+    reviewCards,
+    setReviewCards,
+  }
+}
+
+// Controller
+const useFlashcardController = ({
+  decks,
+  setDecks,
+  selectedDeck,
+  setSelectedDeck,
+  setCurrentView,
+  setReviewCards,
+}: ReturnType<typeof useFlashcardModel>) => {
   const createDeck = (name: string, description: string) => {
     const newDeck: Deck = {
       id: Date.now().toString(),
@@ -137,13 +160,35 @@ export default function HomePage() {
       0,
     )
 
+  const goToDashboard = () => setCurrentView("dashboard")
+
+  return {
+    createDeck,
+    updateDeck,
+    deleteDeck,
+    openDeck,
+    startReview,
+    finishReview,
+    getTotalCards,
+    getCardsToReview,
+    goToDashboard,
+  }
+}
+
+// View
+export default function HomePage() {
+  const model = useFlashcardModel()
+  const controller = useFlashcardController(model)
+
+  const { decks, currentView, selectedDeck, reviewCards } = model
+
   if (currentView === "review" && reviewCards.length > 0 && selectedDeck) {
     return (
       <ReviewSession
         cards={reviewCards}
         deckName={selectedDeck.name}
-        onFinish={finishReview}
-        onBack={() => setCurrentView("dashboard")}
+        onFinish={controller.finishReview}
+        onBack={controller.goToDashboard}
       />
     )
   }
@@ -152,9 +197,9 @@ export default function HomePage() {
     return (
       <DeckDetail
         deck={selectedDeck}
-        onUpdate={updateDeck}
-        onBack={() => setCurrentView("dashboard")}
-        onStartReview={() => startReview(selectedDeck)}
+        onUpdate={controller.updateDeck}
+        onBack={controller.goToDashboard}
+        onStartReview={() => controller.startReview(selectedDeck)}
       />
     )
   }
@@ -167,7 +212,7 @@ export default function HomePage() {
             <h1 className="text-3xl font-bold">Spaced Repetition</h1>
             <p className="text-muted-foreground">Master your learning with intelligent flashcards</p>
           </div>
-          <CreateDeckDialog onCreateDeck={createDeck} />
+          <CreateDeckDialog onCreateDeck={controller.createDeck} />
         </div>
 
         {/* Stats Overview */}
@@ -187,7 +232,7 @@ export default function HomePage() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{getTotalCards()}</div>
+              <div className="text-2xl font-bold">{controller.getTotalCards()}</div>
             </CardContent>
           </UI_Card>
           <UI_Card>
@@ -196,7 +241,7 @@ export default function HomePage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{getCardsToReview()}</div>
+              <div className="text-2xl font-bold text-orange-600">{controller.getCardsToReview()}</div>
             </CardContent>
           </UI_Card>
         </div>
@@ -207,9 +252,9 @@ export default function HomePage() {
             <DeckCard
               key={deck.id}
               deck={deck}
-              onOpen={() => openDeck(deck)}
-              onDelete={() => deleteDeck(deck.id)}
-              onStartReview={() => startReview(deck)}
+              onOpen={() => controller.openDeck(deck)}
+              onDelete={() => controller.deleteDeck(deck.id)}
+              onStartReview={() => controller.startReview(deck)}
             />
           ))}
         </div>
@@ -219,7 +264,7 @@ export default function HomePage() {
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No decks yet</h3>
             <p className="text-muted-foreground mb-4">Create your first deck to start learning</p>
-            <CreateDeckDialog onCreateDeck={createDeck} />
+            <CreateDeckDialog onCreateDeck={controller.createDeck} />
           </div>
         )}
       </div>

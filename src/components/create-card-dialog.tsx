@@ -17,14 +17,36 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
 
+// Types
 interface CreateCardDialogProps {
   onCreateCard: (front: string, back: string) => void
 }
 
-export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
+// Model
+const useCreateCardDialogModel = () => {
   const [open, setOpen] = useState(false)
   const [front, setFront] = useState("")
   const [back, setBack] = useState("")
+
+  return {
+    open,
+    setOpen,
+    front,
+    setFront,
+    back,
+    setBack,
+  }
+}
+
+// Controller
+const useCreateCardDialogController = ({
+  model,
+  onCreateCard,
+}: {
+  model: ReturnType<typeof useCreateCardDialogModel>
+  onCreateCard: CreateCardDialogProps["onCreateCard"]
+}) => {
+  const { front, setFront, back, setBack, setOpen } = model
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,6 +58,27 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
     }
   }
 
+  const handleFrontChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFront(e.target.value)
+  }
+
+  const handleBackChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setBack(e.target.value)
+  }
+
+  const handleCancel = () => {
+    setOpen(false)
+  }
+
+  return { handleSubmit, handleFrontChange, handleBackChange, handleCancel }
+}
+
+// View
+export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
+  const model = useCreateCardDialogModel()
+  const { open, setOpen, front, back } = model
+  const controller = useCreateCardDialogController({ model, onCreateCard })
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -45,7 +88,7 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={controller.handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create New Card</DialogTitle>
             <DialogDescription>Add a new flashcard to this deck.</DialogDescription>
@@ -56,7 +99,7 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
               <Textarea
                 id="front"
                 value={front}
-                onChange={(e) => setFront(e.target.value)}
+                onChange={controller.handleFrontChange}
                 placeholder="Enter the question or prompt..."
                 rows={3}
                 required
@@ -67,7 +110,7 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
               <Textarea
                 id="back"
                 value={back}
-                onChange={(e) => setBack(e.target.value)}
+                onChange={controller.handleBackChange}
                 placeholder="Enter the answer or explanation..."
                 rows={3}
                 required
@@ -75,7 +118,7 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={controller.handleCancel}>
               Cancel
             </Button>
             <Button type="submit">Create Card</Button>

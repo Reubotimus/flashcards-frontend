@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, RotateCcw } from "lucide-react"
 import type { Card as FlashCard } from "@/app/page"
 
+// Types
 interface ReviewSessionProps {
   cards: FlashCard[]
   deckName: string
@@ -14,7 +15,9 @@ interface ReviewSessionProps {
   onBack: () => void
 }
 
-export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessionProps) {
+// Model and Controller Hook
+const useReviewSession = ({ cards, onFinish }: Pick<ReviewSessionProps, "cards" | "onFinish">) => {
+  // Model
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
@@ -22,6 +25,7 @@ export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessi
   const currentCard = cards[currentIndex]
   const progress = ((currentIndex + (showAnswer ? 0.5 : 0)) / cards.length) * 100
 
+  // Controller
   const calculateNextReview = (card: FlashCard, quality: number): FlashCard => {
     // Simplified SM-2 algorithm
     let { interval, easeFactor, repetitions } = card
@@ -77,6 +81,29 @@ export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessi
     setShowAnswer(false)
     setReviewedCards([])
   }
+
+  return {
+    currentIndex,
+    showAnswer,
+    progress,
+    currentCard,
+    handleQuality,
+    handleShowAnswer,
+    handleRestart,
+  }
+}
+
+// View
+export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessionProps) {
+  const {
+    currentIndex,
+    showAnswer,
+    progress,
+    currentCard,
+    handleQuality,
+    handleShowAnswer,
+    handleRestart,
+  } = useReviewSession({ cards, onFinish })
 
   return (
     <div className="min-h-screen bg-background">
