@@ -13,6 +13,6 @@ export default async function Home() {
   }
 
   return (
-    <MainDashboard />
+    <MainDashboard userId={session.user.id} />
   );
 }

@@ -11,6 +11,7 @@ import { ArrowLeft, Edit, Trash2, Play, Clock } from "lucide-react"
 import type { Deck, Card as FlashCard } from "@/components/main-dashboard"
 import { CreateCardDialog } from "@/components/create-card-dialog"
 import { EditCardDialog } from "@/components/edit-card-dialog"
+import * as flashcardService from "@/services/flashcard-service"
 
 // Types
 interface DeckDetailProps {
@@ -18,6 +19,7 @@ interface DeckDetailProps {
   onUpdate: (deck: Deck) => void
   onBack: () => void
   onStartReview: () => void
+  userId: string
 }
 
 // Model
@@ -55,10 +57,12 @@ function useDeckDetailController({
   deck,
   onUpdate,
   model,
+  userId,
 }: {
   deck: Deck
   onUpdate: (deck: Deck) => void
   model: ReturnType<typeof useDeckDetailModel>
+  userId: string
 }) {
   const { name, description, setIsEditing, reset } = model
 
@@ -78,34 +82,56 @@ function useDeckDetailController({
     setIsEditing(false)
   }
 
-  const addCard = (front: string, back: string) => {
-    const newCard: FlashCard = {
-      id: Date.now().toString(),
-      front,
-      back,
-      nextReview: new Date(),
-      interval: 1,
-      easeFactor: 2.5,
-      repetitions: 0,
+  const addCard = async (front: string, back: string) => {
+    try {
+      const newApiCard = await flashcardService.createCard(userId, deck.id, { data: { front, back } })
+
+      const mapApiCardToUiCard = (apiCard: flashcardService.Card): Omit<FlashCard, "deckId"> => ({
+        id: apiCard.id,
+        front: (apiCard.data.front as string) ?? "",
+        back: (apiCard.data.back as string) ?? "",
+        nextReview: new Date(apiCard.fsrs.due),
+        interval: apiCard.fsrs.scheduledDays,
+        easeFactor: apiCard.fsrs.difficulty,
+        repetitions: apiCard.fsrs.reps,
+      })
+      const newCard: FlashCard = {
+        ...mapApiCardToUiCard(newApiCard),
+        deckId: deck.id,
+      }
+      onUpdate({
+        ...deck,
+        cards: [...deck.cards, newCard],
+      })
+    } catch (error) {
+      console.error("Failed to create card:", error)
     }
-    onUpdate({
-      ...deck,
-      cards: [...deck.cards, newCard],
-    })
   }
 
-  const updateCard = (updatedCard: FlashCard) => {
-    onUpdate({
-      ...deck,
-      cards: deck.cards.map((card) => (card.id === updatedCard.id ? updatedCard : card)),
-    })
+  const updateCard = async (updatedCard: FlashCard) => {
+    try {
+      await flashcardService.updateCard(userId, deck.id, updatedCard.id, {
+        data: { front: updatedCard.front, back: updatedCard.back },
+      })
+      onUpdate({
+        ...deck,
+        cards: deck.cards.map((card) => (card.id === updatedCard.id ? updatedCard : card)),
+      })
+    } catch (error) {
+      console.error("Failed to update card:", error)
+    }
   }
 
-  const deleteCard = (cardId: string) => {
-    onUpdate({
-      ...deck,
-      cards: deck.cards.filter((card) => card.id !== cardId),
-    })
+  const deleteCard = async (cardId: string) => {
+    try {
+      await flashcardService.deleteCard(userId, deck.id, cardId)
+      onUpdate({
+        ...deck,
+        cards: deck.cards.filter((card) => card.id !== cardId),
+      })
+    } catch (error) {
+      console.error("Failed to delete card:", error)
+    }
   }
 
   const formatNextReview = (date: Date) => {
@@ -138,9 +164,9 @@ function useDeckDetailController({
 }
 
 // View
-export function DeckDetail({ deck, onUpdate, onBack, onStartReview }: DeckDetailProps) {
+export function DeckDetail({ deck, onUpdate, onBack, onStartReview, userId }: DeckDetailProps) {
   const model = useDeckDetailModel(deck)
-  const controller = useDeckDetailController({ deck, onUpdate, model })
+  const controller = useDeckDetailController({ deck, onUpdate, model, userId })
   const { isEditing, name, description, editingCard, setIsEditing, setName, setDescription, setEditingCard } = model
 
   return (
@@ -214,6 +240,14 @@ export function DeckDetail({ deck, onUpdate, onBack, onStartReview }: DeckDetail
           <CreateCardDialog onCreateCard={controller.addCard} />
         </div>
 
+        {editingCard && (
+          <EditCardDialog
+            card={editingCard}
+            onUpdateCard={controller.updateCard}
+            onClose={() => setEditingCard(null)}
+          />
+        )}
+
         <div className="grid gap-4">
           {deck.cards.map((card) => (
             <Card key={card.id}>
@@ -252,14 +286,6 @@ export function DeckDetail({ deck, onUpdate, onBack, onStartReview }: DeckDetail
             <div className="text-muted-foreground mb-4">No cards in this deck yet</div>
             <CreateCardDialog onCreateCard={controller.addCard} />
           </div>
-        )}
-
-        {editingCard && (
-          <EditCardDialog
-            card={editingCard}
-            onUpdateCard={controller.updateCard}
-            onClose={() => setEditingCard(null)}
-          />
         )}
       </div>
     </div>

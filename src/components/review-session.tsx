@@ -6,69 +6,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, RotateCcw } from "lucide-react"
 import type { Card as FlashCard } from "@/components/main-dashboard"
+import * as flashcardService from "@/services/flashcard-service"
 
 // Types
 interface ReviewSessionProps {
   cards: FlashCard[]
   deckName: string
-  onFinish: (updatedCards: FlashCard[]) => void
+  onFinish: () => void // Updated: onFinish no longer needs to pass updated cards
   onBack: () => void
+  userId: string
 }
 
 // Model and Controller Hook
-const useReviewSession = ({ cards, onFinish }: Pick<ReviewSessionProps, "cards" | "onFinish">) => {
+const useReviewSession = ({ cards, onFinish, userId }: Pick<ReviewSessionProps, "cards" | "onFinish" | "userId">) => {
   // Model
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
-  const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
+  // No longer need to track reviewedCards in local state, as updates are sent to the backend.
 
   const currentCard = cards[currentIndex]
   const progress = ((currentIndex + (showAnswer ? 0.5 : 0)) / cards.length) * 100
 
   // Controller
-  const calculateNextReview = (card: FlashCard, quality: number): FlashCard => {
-    // Simplified SM-2 algorithm
-    let { interval, easeFactor, repetitions } = card
+  const handleQuality = async (rating: flashcardService.Rating) => {
+    if (!currentCard) return
 
-    if (quality >= 3) {
-      if (repetitions === 0) {
-        interval = 1
-      } else if (repetitions === 1) {
-        interval = 6
+    try {
+      await flashcardService.reviewCard(userId, currentCard.deckId, currentCard.id, { rating })
+
+      if (currentIndex < cards.length - 1) {
+        setCurrentIndex(currentIndex + 1)
+        setShowAnswer(false)
       } else {
-        interval = Math.round(interval * easeFactor)
+        onFinish() // All cards reviewed
       }
-      repetitions += 1
-    } else {
-      repetitions = 0
-      interval = 1
-    }
-
-    easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-    if (easeFactor < 1.3) easeFactor = 1.3
-
-    const nextReview = new Date()
-    nextReview.setDate(nextReview.getDate() + interval)
-
-    return {
-      ...card,
-      interval,
-      easeFactor,
-      repetitions,
-      nextReview,
-    }
-  }
-
-  const handleQuality = (quality: number) => {
-    const updatedCard = calculateNextReview(currentCard, quality)
-    const newReviewedCards = [...reviewedCards, updatedCard]
-    setReviewedCards(newReviewedCards)
-
-    if (currentIndex < cards.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-      setShowAnswer(false)
-    } else {
-      onFinish(newReviewedCards)
+    } catch (error) {
+      console.error("Failed to review card:", error)
+      // Handle error appropriately
     }
   }
 
@@ -79,7 +53,6 @@ const useReviewSession = ({ cards, onFinish }: Pick<ReviewSessionProps, "cards" 
   const handleRestart = () => {
     setCurrentIndex(0)
     setShowAnswer(false)
-    setReviewedCards([])
   }
 
   return {
@@ -94,7 +67,7 @@ const useReviewSession = ({ cards, onFinish }: Pick<ReviewSessionProps, "cards" 
 }
 
 // View
-export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessionProps) {
+export function ReviewSession({ cards, deckName, onFinish, onBack, userId }: ReviewSessionProps) {
   const {
     currentIndex,
     showAnswer,
@@ -103,7 +76,18 @@ export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessi
     handleQuality,
     handleShowAnswer,
     handleRestart,
-  } = useReviewSession({ cards, onFinish })
+  } = useReviewSession({ cards, onFinish, userId })
+
+  if (!currentCard) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p>No cards to review in this session.</p>
+        <Button onClick={onBack} className="mt-4">
+          Back to Dashboard
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,25 +135,41 @@ export function ReviewSession({ cards, deckName, onFinish, onBack }: ReviewSessi
             <div className="space-y-4">
               <div className="text-center text-sm text-muted-foreground mb-4">How well did you remember this?</div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <Button variant="outline" onClick={() => handleQuality(0)} className="h-auto py-3 px-4 text-left">
+                <Button
+                  variant="outline"
+                  onClick={() => handleQuality(flashcardService.Rating.Again)}
+                  className="h-auto py-3 px-4 text-left"
+                >
                   <div>
                     <div className="font-medium text-red-600">Again</div>
                     <div className="text-xs text-muted-foreground">Complete blackout</div>
                   </div>
                 </Button>
-                <Button variant="outline" onClick={() => handleQuality(3)} className="h-auto py-3 px-4 text-left">
+                <Button
+                  variant="outline"
+                  onClick={() => handleQuality(flashcardService.Rating.Hard)}
+                  className="h-auto py-3 px-4 text-left"
+                >
                   <div>
                     <div className="font-medium text-orange-600">Hard</div>
                     <div className="text-xs text-muted-foreground">Difficult to recall</div>
                   </div>
                 </Button>
-                <Button variant="outline" onClick={() => handleQuality(4)} className="h-auto py-3 px-4 text-left">
+                <Button
+                  variant="outline"
+                  onClick={() => handleQuality(flashcardService.Rating.Good)}
+                  className="h-auto py-3 px-4 text-left"
+                >
                   <div>
                     <div className="font-medium text-blue-600">Good</div>
                     <div className="text-xs text-muted-foreground">Recalled with effort</div>
                   </div>
                 </Button>
-                <Button variant="outline" onClick={() => handleQuality(5)} className="h-auto py-3 px-4 text-left">
+                <Button
+                  variant="outline"
+                  onClick={() => handleQuality(flashcardService.Rating.Easy)}
+                  className="h-auto py-3 px-4 text-left"
+                >
                   <div>
                     <div className="font-medium text-green-600">Easy</div>
                     <div className="text-xs text-muted-foreground">Perfect recall</div>

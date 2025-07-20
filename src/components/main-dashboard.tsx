@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card as UI_Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, Clock, BarChart3 } from "lucide-react"
 import { CreateDeckDialog } from "@/components/create-deck-dialog"
 import { DeckCard } from "@/components/deck-card"
 import { ReviewSession } from "@/components/review-session"
 import { DeckDetail } from "@/components/deck-detail"
+import * as flashcardService from "@/services/flashcard-service"
 
 // Types
 export interface Card {
@@ -14,9 +15,13 @@ export interface Card {
     front: string
     back: string
     nextReview: Date
+    // These fields from the old model are now part of the FSRS snapshot on the service Card type.
+    // To keep components working, we'll map them.
     interval: number
     easeFactor: number
     repetitions: number
+    // Added deckId for service calls
+    deckId: string
 }
 
 export interface Deck {
@@ -28,52 +33,47 @@ export interface Deck {
 }
 
 // Model
-const useFlashcardModel = () => {
-    const [decks, setDecks] = useState<Deck[]>([
-        {
-            id: "1",
-            name: "Spanish Vocabulary",
-            description: "Basic Spanish words and phrases",
-            cards: [
-                {
-                    id: "1",
-                    front: "Hola",
-                    back: "Hello",
-                    nextReview: new Date(Date.now() - 86400000), // Yesterday
-                    interval: 1,
-                    easeFactor: 2.5,
-                    repetitions: 0,
-                },
-                {
-                    id: "2",
-                    front: "Gracias",
-                    back: "Thank you",
-                    nextReview: new Date(Date.now() + 86400000), // Tomorrow
-                    interval: 2,
-                    easeFactor: 2.5,
-                    repetitions: 1,
-                },
-            ],
-            createdAt: new Date(),
-        },
-        {
-            id: "2",
-            name: "JavaScript Concepts",
-            description: "Important JavaScript programming concepts",
-            cards: [
-                {
-                    id: "3",
-                    front: "What is a closure?",
-                    back: "A closure is a function that has access to variables in its outer (enclosing) scope even after the outer function has returned.",
-                    nextReview: new Date(Date.now() - 3600000), // 1 hour ago
-                    interval: 1,
-                    easeFactor: 2.5,
-                    repetitions: 0,
-                },
-            ],
-            createdAt: new Date(),
-        },
-    ])
+const useFlashcardModel = ({ userId }: { userId: string }) => {
+    const [decks, setDecks] = useState<Deck[]>([])
+
+    useEffect(() => {
+        if (!userId) return
+
+        const mapApiCardToUiCard = (apiCard: flashcardService.Card, deckId: string): Card => ({
+            id: apiCard.id,
+            deckId: deckId,
+            front: (apiCard.data.front as string) ?? "",
+            back: (apiCard.data.back as string) ?? "",
+            nextReview: new Date(apiCard.fsrs.due),
+            interval: apiCard.fsrs.scheduledDays,
+            easeFactor: apiCard.fsrs.difficulty,
+            repetitions: apiCard.fsrs.reps,
+        })
+
+        const loadDecks = async () => {
+            try {
+                const { items: apiDecks } = await flashcardService.listDecks(userId)
+                const decksWithCards: Deck[] = await Promise.all(
+                    apiDecks.map(async (deck) => {
+                        const { items: apiCards } = await flashcardService.listCards(userId, deck.id)
+                        return {
+                            id: deck.id,
+                            name: deck.name,
+                            description: deck.description ?? "",
+                            cards: apiCards.map((c) => mapApiCardToUiCard(c, deck.id)),
+                            createdAt: new Date(deck.createdAt),
+                        }
+                    }),
+                )
+                setDecks(decksWithCards)
+            } catch (error) {
+                console.error("Failed to load decks:", error)
+                // Handle error appropriately in a real app
+            }
+        }
+
+        loadDecks()
+    }, [userId])
 
     const [currentView, setCurrentView] = useState<"dashboard" | "deck" | "review">("dashboard")
     const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null)
@@ -99,27 +99,46 @@ const useFlashcardController = ({
     setSelectedDeck,
     setCurrentView,
     setReviewCards,
-}: ReturnType<typeof useFlashcardModel>) => {
-    const createDeck = (name: string, description: string) => {
-        const newDeck: Deck = {
-            id: Date.now().toString(),
-            name,
-            description,
-            cards: [],
-            createdAt: new Date(),
+    userId,
+}: ReturnType<typeof useFlashcardModel> & { userId: string }) => {
+    const createDeck = async (name: string, description: string) => {
+        try {
+            const newApiDeck = await flashcardService.createDeck(userId, { name, description })
+            const newDeck: Deck = {
+                id: newApiDeck.id,
+                name: newApiDeck.name,
+                description: newApiDeck.description ?? "",
+                cards: [],
+                createdAt: new Date(newApiDeck.createdAt),
+            }
+            setDecks([...decks, newDeck])
+        } catch (error) {
+            console.error("Failed to create deck:", error)
         }
-        setDecks([...decks, newDeck])
     }
 
-    const updateDeck = (updatedDeck: Deck) => {
-        setDecks(decks.map((deck) => (deck.id === updatedDeck.id ? updatedDeck : deck)))
+    const updateDeck = async (updatedDeck: Deck) => {
+        try {
+            await flashcardService.updateDeck(userId, updatedDeck.id, {
+                name: updatedDeck.name,
+                description: updatedDeck.description,
+            })
+            setDecks(decks.map((deck) => (deck.id === updatedDeck.id ? updatedDeck : deck)))
+        } catch (error) {
+            console.error("Failed to update deck:", error)
+        }
     }
 
-    const deleteDeck = (deckId: string) => {
-        setDecks(decks.filter((deck) => deck.id !== deckId))
-        if (selectedDeck?.id === deckId) {
-            setCurrentView("dashboard")
-            setSelectedDeck(null)
+    const deleteDeck = async (deckId: string) => {
+        try {
+            await flashcardService.deleteDeck(userId, deckId)
+            setDecks(decks.filter((deck) => deck.id !== deckId))
+            if (selectedDeck?.id === deckId) {
+                setCurrentView("dashboard")
+                setSelectedDeck(null)
+            }
+        } catch (error) {
+            console.error("Failed to delete deck:", error)
         }
     }
 
@@ -137,17 +156,38 @@ const useFlashcardController = ({
         }
     }
 
-    const finishReview = (updatedCards: Card[]) => {
+    const finishReview = () => {
+        // The review logic is now handled in the ReviewSession component.
+        // This function is called when the session is over, so we just
+        // need to refresh the data and go back to the dashboard.
         if (selectedDeck) {
-            const updatedDeck = {
-                ...selectedDeck,
-                cards: selectedDeck.cards.map((card) => {
-                    const updatedCard = updatedCards.find((c) => c.id === card.id)
-                    return updatedCard || card
-                }),
+            // Re-fetch the deck to get the latest card statuses
+            const loadDeck = async () => {
+                try {
+                    const { items: apiCards } = await flashcardService.listCards(userId, selectedDeck.id)
+
+                    const mapApiCardToUiCard = (apiCard: flashcardService.Card, deckId: string): Card => ({
+                        id: apiCard.id,
+                        deckId: deckId,
+                        front: (apiCard.data.front as string) ?? "",
+                        back: (apiCard.data.back as string) ?? "",
+                        nextReview: new Date(apiCard.fsrs.due),
+                        interval: apiCard.fsrs.scheduledDays,
+                        easeFactor: apiCard.fsrs.difficulty,
+                        repetitions: apiCard.fsrs.reps,
+                    })
+
+                    const updatedDeck = {
+                        ...selectedDeck,
+                        cards: apiCards.map((c) => mapApiCardToUiCard(c, selectedDeck.id)),
+                    }
+                    updateDeck(updatedDeck)
+                    setSelectedDeck(updatedDeck)
+                } catch (error) {
+                    console.error("Failed to reload deck after review:", error)
+                }
             }
-            updateDeck(updatedDeck)
-            setSelectedDeck(updatedDeck)
+            loadDeck()
         }
         setCurrentView("dashboard")
         setReviewCards([])
@@ -176,9 +216,9 @@ const useFlashcardController = ({
 }
 
 // View
-export function MainDashboard() {
-    const model = useFlashcardModel()
-    const controller = useFlashcardController(model)
+export function MainDashboard({ userId }: { userId: string }) {
+    const model = useFlashcardModel({ userId })
+    const controller = useFlashcardController({ ...model, userId })
 
     const { decks, currentView, selectedDeck, reviewCards } = model
 
@@ -189,6 +229,7 @@ export function MainDashboard() {
                 deckName={selectedDeck.name}
                 onFinish={controller.finishReview}
                 onBack={controller.goToDashboard}
+                userId={userId}
             />
         )
     }
@@ -200,6 +241,7 @@ export function MainDashboard() {
                 onUpdate={controller.updateDeck}
                 onBack={controller.goToDashboard}
                 onStartReview={() => controller.startReview(selectedDeck)}
+                userId={userId}
             />
         )
     }

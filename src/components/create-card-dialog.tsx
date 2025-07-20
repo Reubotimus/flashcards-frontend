@@ -19,7 +19,7 @@ import { Plus } from "lucide-react"
 
 // Types
 interface CreateCardDialogProps {
-  onCreateCard: (front: string, back: string) => void
+  onCreateCard: (front: string, back: string) => Promise<void>
 }
 
 // Model
@@ -27,6 +27,7 @@ const useCreateCardDialogModel = () => {
   const [open, setOpen] = useState(false)
   const [front, setFront] = useState("")
   const [back, setBack] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
 
   return {
     open,
@@ -35,6 +36,8 @@ const useCreateCardDialogModel = () => {
     setFront,
     back,
     setBack,
+    isCreating,
+    setIsCreating,
   }
 }
 
@@ -46,15 +49,23 @@ const useCreateCardDialogController = ({
   model: ReturnType<typeof useCreateCardDialogModel>
   onCreateCard: CreateCardDialogProps["onCreateCard"]
 }) => {
-  const { front, setFront, back, setBack, setOpen } = model
+  const { front, setFront, back, setBack, setOpen, isCreating, setIsCreating } = model
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (front.trim() && back.trim()) {
-      onCreateCard(front.trim(), back.trim())
-      setFront("")
-      setBack("")
-      setOpen(false)
+    if (front.trim() && back.trim() && !isCreating) {
+      setIsCreating(true)
+      try {
+        await onCreateCard(front.trim(), back.trim())
+        setFront("")
+        setBack("")
+        setOpen(false)
+      } catch (error) {
+        console.error("Failed to create card:", error)
+        // Optionally, show an error message to the user
+      } finally {
+        setIsCreating(false)
+      }
     }
   }
 
@@ -76,7 +87,7 @@ const useCreateCardDialogController = ({
 // View
 export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
   const model = useCreateCardDialogModel()
-  const { open, setOpen, front, back } = model
+  const { open, setOpen, front, back, isCreating } = model
   const controller = useCreateCardDialogController({ model, onCreateCard })
 
   return (
@@ -93,7 +104,7 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
             <DialogTitle>Create New Card</DialogTitle>
             <DialogDescription>Add a new flashcard to this deck.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <fieldset disabled={isCreating} className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="front">Front (Question)</Label>
               <Textarea
@@ -116,12 +127,14 @@ export function CreateCardDialog({ onCreateCard }: CreateCardDialogProps) {
                 required
               />
             </div>
-          </div>
+          </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={controller.handleCancel}>
+            <Button type="button" variant="outline" onClick={controller.handleCancel} disabled={isCreating}>
               Cancel
             </Button>
-            <Button type="submit">Create Card</Button>
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? "Creating..." : "Create Card"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
