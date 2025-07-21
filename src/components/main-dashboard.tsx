@@ -123,7 +123,9 @@ const useFlashcardController = ({
                 name: updatedDeck.name,
                 description: updatedDeck.description,
             })
-            setDecks(decks.map((deck) => (deck.id === updatedDeck.id ? updatedDeck : deck)))
+            const newDecks = decks.map((deck) => (deck.id === updatedDeck.id ? updatedDeck : deck))
+            setDecks(newDecks)
+            setSelectedDeck(updatedDeck)
         } catch (error) {
             console.error("Failed to update deck:", error)
         }
