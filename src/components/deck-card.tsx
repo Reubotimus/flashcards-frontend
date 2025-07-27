@@ -17,6 +17,17 @@ interface DeckCardProps {
 export function DeckCard({ deck, onOpen, onDelete, onStartReview }: DeckCardProps) {
   const cardsToReview = deck.cards.filter((card) => new Date(card.nextReview) <= new Date()).length
 
+  const now = new Date().getTime()
+  const cardsDueIn6Hours = deck.cards.filter(
+    (card) => new Date(card.nextReview).getTime() <= now + 6 * 60 * 60 * 1000,
+  ).length
+  const cardsDueIn24Hours = deck.cards.filter(
+    (card) => new Date(card.nextReview).getTime() <= now + 24 * 60 * 60 * 1000,
+  ).length
+  const cardsDueIn48Hours = deck.cards.filter(
+    (card) => new Date(card.nextReview).getTime() <= now + 48 * 60 * 60 * 1000,
+  ).length
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -51,6 +62,20 @@ export function DeckCard({ deck, onOpen, onDelete, onStartReview }: DeckCardProp
               {cardsToReview} due
             </Badge>
           )}
+        </div>
+        <div className="mb-4 space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Due in 6 hrs</span>
+            <span className="font-semibold">{cardsDueIn6Hours}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Due in 24 hrs</span>
+            <span className="font-semibold">{cardsDueIn24Hours}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Due in 48 hrs</span>
+            <span className="font-semibold">{cardsDueIn48Hours}</span>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button onClick={onOpen} variant="outline" size="sm" className="flex-1 bg-transparent">

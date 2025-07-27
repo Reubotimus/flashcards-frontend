@@ -135,21 +135,7 @@ function useDeckDetailController({
   }
 
   const formatNextReview = (date: Date) => {
-    const now = new Date()
-    const reviewDate = new Date(date)
-    const diffTime = reviewDate.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return "Overdue"
-    }
-    if (diffDays === 0) {
-      return "Today"
-    }
-    if (diffDays === 1) {
-      return "Tomorrow"
-    }
-    return `In ${diffDays} days`
+    return new Date(date).toLocaleString()
   }
 
   return {
