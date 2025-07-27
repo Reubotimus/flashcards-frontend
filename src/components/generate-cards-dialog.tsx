@@ -94,7 +94,7 @@ export function GenerateCardsDialog({ onGenerateCards }: GenerateCardsDialogProp
                 <DialogHeader>
                     <DialogTitle>Generate Cards from Text</DialogTitle>
                     <DialogDescription>
-                        Paste in your notes, and we'll automatically create flashcards for you.
+                        Paste in your notes, and we&apos;ll automatically create flashcards for you.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={controller.handleSubmit} className="flex-grow overflow-y-auto">

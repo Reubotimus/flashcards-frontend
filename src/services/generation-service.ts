@@ -49,7 +49,7 @@ export async function generateCards(userId: string, deckId: string, text: string
     ]);
     const jsonParser = new JsonOutputParser();
 
-    let allNewCards: CardData[] = [];
+    const allNewCards: CardData[] = [];
     for (const chunk of chunks) {
         try {
             const prompt = await cardExtractionPrompt.formatMessages({ chunk: chunk });
