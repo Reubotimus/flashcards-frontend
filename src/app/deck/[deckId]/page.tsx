@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { DeckDetail } from "@/components/deck-detail";
 
 export default async function DeckDetailPage({ params }: { params: { deckId: string } }) {
-    const { deckId } = params
+    const { deckId } = await params
     const session = await auth.api.getSession({
         headers: await headers()
     })

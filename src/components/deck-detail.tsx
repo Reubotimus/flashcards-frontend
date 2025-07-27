@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Edit, Trash2, Play, Clock } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Play, Clock, Wand2 } from "lucide-react"
 import type { Deck, Card as FlashCard } from "@/components/main-dashboard"
 import { CreateCardDialog } from "@/components/create-card-dialog"
 import { EditCardDialog } from "@/components/edit-card-dialog"
+import { GenerateCardsDialog } from "@/components/generate-cards-dialog"
 import * as flashcardService from "@/services/flashcard-service"
+import * as generationService from "@/services/generation-service"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Types
@@ -20,6 +22,16 @@ interface DeckDetailProps {
   deckId: string
   userId: string
 }
+
+const mapApiCardToUiCard = (apiCard: flashcardService.Card): Omit<FlashCard, "deckId"> => ({
+  id: apiCard.id,
+  front: (apiCard.data.front as string) ?? "",
+  back: (apiCard.data.back as string) ?? "",
+  nextReview: new Date(apiCard.fsrs.due),
+  interval: apiCard.fsrs.scheduledDays,
+  easeFactor: apiCard.fsrs.difficulty,
+  repetitions: apiCard.fsrs.reps,
+})
 
 // Model
 function useDeckDetailModel(userId: string, deckId: string) {
@@ -36,16 +48,6 @@ function useDeckDetailModel(userId: string, deckId: string) {
         setIsLoading(true)
         const apiDeck = await flashcardService.getDeck(userId, deckId)
         const { items: apiCards } = await flashcardService.listCards(userId, deckId)
-
-        const mapApiCardToUiCard = (apiCard: flashcardService.Card): Omit<FlashCard, "deckId"> => ({
-          id: apiCard.id,
-          front: (apiCard.data.front as string) ?? "",
-          back: (apiCard.data.back as string) ?? "",
-          nextReview: new Date(apiCard.fsrs.due),
-          interval: apiCard.fsrs.scheduledDays,
-          easeFactor: apiCard.fsrs.difficulty,
-          repetitions: apiCard.fsrs.reps,
-        })
 
         const fullDeck: Deck = {
           id: apiDeck.id,
@@ -130,15 +132,6 @@ function useDeckDetailController({
     try {
       const newApiCard = await flashcardService.createCard(userId, deck.id, { data: { front, back } })
 
-      const mapApiCardToUiCard = (apiCard: flashcardService.Card): Omit<FlashCard, "deckId"> => ({
-        id: apiCard.id,
-        front: (apiCard.data.front as string) ?? "",
-        back: (apiCard.data.back as string) ?? "",
-        nextReview: new Date(apiCard.fsrs.due),
-        interval: apiCard.fsrs.scheduledDays,
-        easeFactor: apiCard.fsrs.difficulty,
-        repetitions: apiCard.fsrs.reps,
-      })
       const newCard: FlashCard = {
         ...mapApiCardToUiCard(newApiCard),
         deckId: deck.id,
@@ -149,6 +142,23 @@ function useDeckDetailController({
       })
     } catch (error) {
       console.error("Failed to create card:", error)
+    }
+  }
+
+  const generateCards = async (text: string) => {
+    if (!deck) return
+    try {
+      const newApiCards = await generationService.generateCards(userId, deck.id, text)
+      const newCards: FlashCard[] = newApiCards.map((c) => ({
+        ...mapApiCardToUiCard(c),
+        deckId: deck.id,
+      }))
+      setDeck({
+        ...deck,
+        cards: [...deck.cards, ...newCards],
+      })
+    } catch (error) {
+      console.error("Failed to generate cards:", error)
     }
   }
 
@@ -189,6 +199,7 @@ function useDeckDetailController({
     handleSaveDeck,
     handleCancelEdit,
     addCard,
+    generateCards,
     updateCard,
     deleteCard,
     formatNextReview,
@@ -306,7 +317,10 @@ export function DeckDetail({ deckId, userId }: DeckDetailProps) {
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Cards</h2>
-          <CreateCardDialog onCreateCard={controller.addCard} />
+          <div className="flex gap-2">
+            <CreateCardDialog onCreateCard={controller.addCard} />
+            <GenerateCardsDialog onGenerateCards={controller.generateCards} />
+          </div>
         </div>
 
         {editingCard && (
