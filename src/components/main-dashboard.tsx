@@ -8,6 +8,7 @@ import { DeckCard } from "@/components/deck-card"
 import { ReviewSession } from "@/components/review-session"
 import { DeckDetail } from "@/components/deck-detail"
 import * as flashcardService from "@/services/flashcard-service"
+import { redirect } from "next/navigation"
 
 // Types
 export interface Card {
@@ -145,8 +146,7 @@ const useFlashcardController = ({
     }
 
     const openDeck = (deck: Deck) => {
-        setSelectedDeck(deck)
-        setCurrentView("deck")
+        redirect(`/deck/${deck.id}`)
     }
 
     const startReview = (deck: Deck) => {
@@ -239,10 +239,7 @@ export function MainDashboard({ userId }: { userId: string }) {
     if (currentView === "deck" && selectedDeck) {
         return (
             <DeckDetail
-                deck={selectedDeck}
-                onUpdate={controller.updateDeck}
-                onBack={controller.goToDashboard}
-                onStartReview={() => controller.startReview(selectedDeck)}
+                deckId={selectedDeck.id}
                 userId={userId}
             />
         )
