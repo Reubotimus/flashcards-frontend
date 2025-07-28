@@ -40,8 +40,21 @@ export default function SignUpPage() {
             setIsSubmitting(true);
             await authClient.signUp.email({ name, email, password });
             router.push("/");
-        } catch (e: any) {
-            setError(e.body?.message ?? e.message ?? "Something went wrong");
+        } catch (e: unknown) {
+            if (
+                e &&
+                typeof e === "object" &&
+                "body" in e &&
+                typeof (e as { body?: unknown }).body === "object" &&
+                (e as { body?: { message?: string } }).body &&
+                "message" in (e as { body: { message?: string } }).body
+            ) {
+                setError(((e as { body: { message?: string } }).body.message) ?? "Something went wrong");
+            } else if (e && typeof e === "object" && "message" in e) {
+                setError((e as { message?: string }).message ?? "Something went wrong");
+            } else {
+                setError("Something went wrong");
+            }
         } finally {
             setIsSubmitting(false);
         }
