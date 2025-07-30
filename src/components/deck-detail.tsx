@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Types
 interface DeckDetailProps {
-  deckId: string
+  deck: Deck
   userId: string
 }
 
@@ -34,46 +34,16 @@ const mapApiCardToUiCard = (apiCard: flashcardService.Card): Omit<FlashCard, "de
 })
 
 // Model
-function useDeckDetailModel(userId: string, deckId: string) {
-  const [deck, setDeck] = useState<Deck | null>(null)
+function useDeckDetailModel(initialDeck: Deck) {
+  const [deck, setDeck] = useState<Deck>(initialDeck)
   const [isEditing, setIsEditing] = useState(false)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
+  const [name, setName] = useState(initialDeck.name)
+  const [description, setDescription] = useState(initialDeck.description)
   const [editingCard, setEditingCard] = useState<FlashCard | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchDeck = async () => {
-      try {
-        setIsLoading(true)
-        const apiDeck = await flashcardService.getDeck(userId, deckId)
-        const { items: apiCards } = await flashcardService.listCards(userId, deckId)
-
-        const fullDeck: Deck = {
-          id: apiDeck.id,
-          name: apiDeck.name,
-          description: apiDeck.description ?? "",
-          cards: apiCards.map((c) => ({ ...mapApiCardToUiCard(c), deckId: apiDeck.id })),
-          createdAt: new Date(apiDeck.createdAt),
-        }
-        setDeck(fullDeck)
-        setName(fullDeck.name)
-        setDescription(fullDeck.description ?? "")
-      } catch (error) {
-        console.error("Failed to fetch deck details:", error)
-        // Handle error appropriately
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchDeck()
-  }, [userId, deckId])
 
   const reset = () => {
-    if (deck) {
-      setName(deck.name)
-      setDescription(deck.description)
-    }
+    setName(deck.name)
+    setDescription(deck.description)
   }
 
   return {
@@ -88,7 +58,7 @@ function useDeckDetailModel(userId: string, deckId: string) {
     editingCard,
     setEditingCard,
     reset,
-    isLoading,
+    isLoading: false,
   }
 }
 
@@ -101,8 +71,16 @@ function useDeckDetailController({
   userId: string
 }) {
   const { name, description, setIsEditing, reset, deck, setDeck } = model
+  const todayDate = new Date()
+  const cardsToReview = deck?.cards.filter(
+    (card) => card.repetitions > 0 && new Date(card.nextReview) <= todayDate
+  ).length || 0
 
-  const cardsToReview = deck ? deck.cards.filter((card) => new Date(card.nextReview) <= new Date()).length : 0
+  const nextReviewDate =
+    deck?.cards
+      .filter((card) => card.repetitions > 0 && new Date(card.nextReview) > todayDate)
+      .sort((a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime())[0]
+      ?.nextReview ?? null
 
   const handleSaveDeck = async () => {
     if (!deck) return
@@ -196,6 +174,7 @@ function useDeckDetailController({
 
   return {
     cardsToReview,
+    nextReviewDate, // NEW: expose nextReviewDate to the view layer
     handleSaveDeck,
     handleCancelEdit,
     addCard,
@@ -207,12 +186,12 @@ function useDeckDetailController({
 }
 
 // View
-export function DeckDetail({ deckId, userId }: DeckDetailProps) {
+export function DeckDetail({ deck, userId }: DeckDetailProps) {
   const router = useRouter()
-  const model = useDeckDetailModel(userId, deckId)
+  const model = useDeckDetailModel(deck)
   const controller = useDeckDetailController({ model, userId })
   const {
-    deck,
+    deck: currentDeck,
     isEditing,
     name,
     description,
@@ -224,27 +203,13 @@ export function DeckDetail({ deckId, userId }: DeckDetailProps) {
     isLoading,
   } = model
 
-  const newCards = deck?.cards.filter((card) => card.repetitions === 0) || []
+  const newCards = currentDeck.cards.filter((card) => card.repetitions === 0)
   const memorizedCards =
-    deck?.cards
+    currentDeck.cards
       .filter((card) => card.repetitions > 0)
-      .sort((a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime()) || []
+      .sort((a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime())
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xl">Loading deck...</div>
-      </div>
-    )
-  }
-
-  if (!deck) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xl text-red-500">Could not load deck.</div>
-      </div>
-    )
-  }
+  // No loading state needed; deck is always present
 
   return (
     <div className="min-h-screen bg-background">
@@ -285,15 +250,22 @@ export function DeckDetail({ deckId, userId }: DeckDetailProps) {
             ) : (
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-2xl">{deck.name}</CardTitle>
-                  <CardDescription className="mt-2">{deck.description}</CardDescription>
+                  <CardTitle className="text-2xl">{currentDeck.name}</CardTitle>
+                  <CardDescription className="mt-2">{currentDeck.description}</CardDescription>
                   <div className="flex items-center gap-4 mt-4">
-                    <Badge variant="secondary">{deck.cards.length} cards</Badge>
-                    {controller.cardsToReview > 0 && (
+                    <Badge variant="secondary">{currentDeck.cards.length} cards</Badge>
+                    {controller.cardsToReview > 0 ? (
                       <Badge variant="secondary" className="text-orange-600">
                         <Clock className="h-3 w-3 mr-1" />
                         {controller.cardsToReview} due for review
                       </Badge>
+                    ) : (
+                      controller.nextReviewDate && (
+                        <Badge variant="secondary">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Next review: {controller.formatNextReview(controller.nextReviewDate)}
+                        </Badge>
+                      )
                     )}
                   </div>
                 </div>
@@ -303,7 +275,7 @@ export function DeckDetail({ deckId, userId }: DeckDetailProps) {
                     Edit
                   </Button>
                   <Button
-                    onClick={() => router.push(`/deck/${deck.id}/review`)}
+                    onClick={() => router.push(`/deck/${currentDeck.id}/review`)}
                     disabled={controller.cardsToReview === 0}
                   >
                     <Play className="h-4 w-4 mr-2" />
@@ -408,7 +380,7 @@ export function DeckDetail({ deckId, userId }: DeckDetailProps) {
           </TabsContent>
         </Tabs>
 
-        {deck.cards.length === 0 && (
+        {currentDeck.cards.length === 0 && (
           <div className="text-center py-12">
             <div className="text-muted-foreground mb-4">No cards in this deck yet</div>
             <CreateCardDialog onCreateCard={controller.addCard} />

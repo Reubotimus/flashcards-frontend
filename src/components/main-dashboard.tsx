@@ -150,7 +150,11 @@ const useFlashcardController = ({
     }
 
     const startReview = (deck: Deck) => {
-        const cardsToReview = deck.cards.filter((card) => new Date(card.nextReview) <= new Date())
+        const dueCards = deck.cards.filter((card) => new Date(card.nextReview) <= new Date())
+        // Sort: reviewed cards (repetitions > 0) first, then new cards (repetitions === 0)
+        const reviewed = dueCards.filter(card => card.repetitions > 0)
+        const newCards = dueCards.filter(card => card.repetitions === 0)
+        const cardsToReview = [...reviewed, ...newCards]
         if (cardsToReview.length > 0) {
             setReviewCards(cardsToReview)
             setSelectedDeck(deck)
