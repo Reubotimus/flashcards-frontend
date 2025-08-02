@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import * as flashcardService from "@/services/flashcard-service"
 import type { Card } from "@/components/main-dashboard"
 import { ReviewSessionClient } from "@/components/review-session-client"
+import { cookies } from "next/headers"
+import { parse } from "url"
 
 // Removed in-file client component; now using dedicated client component.
 
@@ -24,10 +26,13 @@ const mapApiCardToUiCard = (
 
 export default async function DeckReviewPage({
     params,
+    searchParams,
 }: {
-    params: { deckId: string }
+    params: Promise<{ deckId: string }>
+    searchParams?: Promise<{ mode?: string }>
 }) {
-    const { deckId } = params
+    const { deckId } = await params
+    const resolvedSearchParams = searchParams ? await searchParams : undefined
     // Authenticate the user
     const session = await auth.api.getSession({
         headers: await headers(),
@@ -43,12 +48,19 @@ export default async function DeckReviewPage({
     const deck = await flashcardService.getDeck(userId, deckId)
     const { items: apiCards } = await flashcardService.listCards(userId, deckId)
 
-    // Prepare cards due for review (same logic as in MainDashboard)
-    const reviewCards: Card[] = apiCards
-        .map((c) => mapApiCardToUiCard(c, deckId))
-        .filter((card) => new Date(card.nextReview) <= new Date())
+    // Determine mode from query param
+    const mode = resolvedSearchParams?.mode
+    let reviewCards: Card[]
+    if (mode === "new") {
+        reviewCards = apiCards
+            .map((c) => mapApiCardToUiCard(c, deckId))
+            .filter((card) => card.repetitions === 0)
+    } else {
+        reviewCards = apiCards
+            .map((c) => mapApiCardToUiCard(c, deckId))
+            .filter((card) => card.repetitions > 0 && new Date(card.nextReview) <= new Date())
+    }
 
-    // If no cards are due, redirect back to the deck detail page
     if (reviewCards.length === 0) {
         redirect(`/deck/${deckId}`)
     }
@@ -59,6 +71,7 @@ export default async function DeckReviewPage({
             deckName={deck.name}
             deckId={deckId}
             userId={userId}
+            mode={mode === 'new' ? 'new' : 'normal'}
         />
     )
 } 

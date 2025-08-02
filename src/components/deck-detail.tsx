@@ -208,6 +208,11 @@ export function DeckDetail({ deck, userId }: DeckDetailProps) {
     currentDeck.cards
       .filter((card) => card.repetitions > 0)
       .sort((a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime())
+  // Add dueCards: reviewed more than once and past their next review date
+  const todayDate = new Date()
+  const dueCards = currentDeck.cards.filter(
+    (card) => card.repetitions > 0 && new Date(card.nextReview) <= todayDate
+  )
 
   // No loading state needed; deck is always present
 
@@ -281,6 +286,15 @@ export function DeckDetail({ deck, userId }: DeckDetailProps) {
                     <Play className="h-4 w-4 mr-2" />
                     Start Review
                   </Button>
+                  <Button
+                    onClick={() => router.push(`/deck/${currentDeck.id}/review?mode=new`)}
+                    disabled={newCards.length === 0}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    New Cards
+                  </Button>
                 </div>
               </div>
             )}
@@ -304,9 +318,10 @@ export function DeckDetail({ deck, userId }: DeckDetailProps) {
         )}
 
         <Tabs defaultValue="new" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="new">New ({newCards.length})</TabsTrigger>
             <TabsTrigger value="memorized">Memorized ({memorizedCards.length})</TabsTrigger>
+            <TabsTrigger value="due">Due ({dueCards.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="new">
             <div className="grid gap-4 mt-4">
@@ -375,6 +390,43 @@ export function DeckDetail({ deck, userId }: DeckDetailProps) {
               ))}
               {memorizedCards.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">No memorized cards yet.</div>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="due">
+            <div className="grid gap-4 mt-4">
+              {dueCards.map((card) => (
+                <Card key={card.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <div className="text-sm font-medium text-muted-foreground">Front</div>
+                          <div className="text-sm">{card.front}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-muted-foreground">Back</div>
+                          <div className="text-sm">{card.back}</div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Next review: {controller.formatNextReview(card.nextReview)}</span>
+                          <span>Repetitions: {card.repetitions}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setEditingCard(card)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => controller.deleteCard(card.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {dueCards.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">No due cards.</div>
               )}
             </div>
           </TabsContent>

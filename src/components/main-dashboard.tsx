@@ -5,10 +5,10 @@ import { Card as UI_Card, CardContent, CardHeader, CardTitle } from "@/component
 import { BookOpen, Clock, BarChart3 } from "lucide-react"
 import { CreateDeckDialog } from "@/components/create-deck-dialog"
 import { DeckCard } from "@/components/deck-card"
-import { ReviewSession } from "@/components/review-session"
 import { DeckDetail } from "@/components/deck-detail"
 import * as flashcardService from "@/services/flashcard-service"
 import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 
 // Types
 export interface Card {
@@ -76,9 +76,9 @@ const useFlashcardModel = ({ userId }: { userId: string }) => {
         loadDecks()
     }, [userId])
 
-    const [currentView, setCurrentView] = useState<"dashboard" | "deck" | "review">("dashboard")
+    const [currentView, setCurrentView] = useState<"dashboard" | "deck">("dashboard")
     const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null)
-    const [reviewCards, setReviewCards] = useState<Card[]>([])
+    // REMOVED: const [reviewCards, setReviewCards] = useState<Card[]>([])
 
     return {
         decks,
@@ -87,8 +87,6 @@ const useFlashcardModel = ({ userId }: { userId: string }) => {
         setCurrentView,
         selectedDeck,
         setSelectedDeck,
-        reviewCards,
-        setReviewCards,
     }
 }
 
@@ -99,7 +97,6 @@ const useFlashcardController = ({
     selectedDeck,
     setSelectedDeck,
     setCurrentView,
-    setReviewCards,
     userId,
 }: ReturnType<typeof useFlashcardModel> & { userId: string }) => {
     const createDeck = async (name: string, description: string) => {
@@ -150,54 +147,11 @@ const useFlashcardController = ({
     }
 
     const startReview = (deck: Deck) => {
-        const dueCards = deck.cards.filter((card) => new Date(card.nextReview) <= new Date())
-        // Sort: reviewed cards (repetitions > 0) first, then new cards (repetitions === 0)
-        const reviewed = dueCards.filter(card => card.repetitions > 0)
-        const newCards = dueCards.filter(card => card.repetitions === 0)
-        const cardsToReview = [...reviewed, ...newCards]
-        if (cardsToReview.length > 0) {
-            setReviewCards(cardsToReview)
-            setSelectedDeck(deck)
-            setCurrentView("review")
-        }
+        // Instead of setting state, redirect to the review page
+        redirect(`/deck/${deck.id}/review`)
     }
 
-    const finishReview = () => {
-        // The review logic is now handled in the ReviewSession component.
-        // This function is called when the session is over, so we just
-        // need to refresh the data and go back to the dashboard.
-        if (selectedDeck) {
-            // Re-fetch the deck to get the latest card statuses
-            const loadDeck = async () => {
-                try {
-                    const { items: apiCards } = await flashcardService.listCards(userId, selectedDeck.id)
-
-                    const mapApiCardToUiCard = (apiCard: flashcardService.Card, deckId: string): Card => ({
-                        id: apiCard.id,
-                        deckId: deckId,
-                        front: (apiCard.data.front as string) ?? "",
-                        back: (apiCard.data.back as string) ?? "",
-                        nextReview: new Date(apiCard.fsrs.due),
-                        interval: apiCard.fsrs.scheduledDays,
-                        easeFactor: apiCard.fsrs.difficulty,
-                        repetitions: apiCard.fsrs.reps,
-                    })
-
-                    const updatedDeck = {
-                        ...selectedDeck,
-                        cards: apiCards.map((c) => mapApiCardToUiCard(c, selectedDeck.id)),
-                    }
-                    updateDeck(updatedDeck)
-                    setSelectedDeck(updatedDeck)
-                } catch (error) {
-                    console.error("Failed to reload deck after review:", error)
-                }
-            }
-            loadDeck()
-        }
-        setCurrentView("dashboard")
-        setReviewCards([])
-    }
+    // REMOVED: finishReview (no longer needed)
 
     const getTotalCards = () => decks.reduce((total, deck) => total + deck.cards.length, 0)
     const getCardsToReview = () =>
@@ -214,7 +168,7 @@ const useFlashcardController = ({
         deleteDeck,
         openDeck,
         startReview,
-        finishReview,
+        // REMOVED: finishReview,
         getTotalCards,
         getCardsToReview,
         goToDashboard,
@@ -225,25 +179,14 @@ const useFlashcardController = ({
 export function MainDashboard({ userId }: { userId: string }) {
     const model = useFlashcardModel({ userId })
     const controller = useFlashcardController({ ...model, userId })
+    const router = useRouter()
 
-    const { decks, currentView, selectedDeck, reviewCards } = model
-
-    if (currentView === "review" && reviewCards.length > 0 && selectedDeck) {
-        return (
-            <ReviewSession
-                cards={reviewCards}
-                deckName={selectedDeck.name}
-                onFinish={controller.finishReview}
-                onBack={controller.goToDashboard}
-                userId={userId}
-            />
-        )
-    }
+    const { decks, currentView, selectedDeck } = model // REMOVED: reviewCards
 
     if (currentView === "deck" && selectedDeck) {
         return (
             <DeckDetail
-                deckId={selectedDeck.id}
+                deck={selectedDeck}
                 userId={userId}
             />
         )
@@ -300,6 +243,7 @@ export function MainDashboard({ userId }: { userId: string }) {
                             onOpen={() => controller.openDeck(deck)}
                             onDelete={() => controller.deleteDeck(deck.id)}
                             onStartReview={() => controller.startReview(deck)}
+                            onStartNewCardsReview={() => router.push(`/deck/${deck.id}/review?mode=new`)}
                         />
                     ))}
                 </div>

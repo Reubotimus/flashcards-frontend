@@ -15,10 +15,11 @@ interface ReviewSessionProps {
   onFinish: () => void // Updated: onFinish no longer needs to pass updated cards
   onBack: () => void
   userId: string
+  mode?: 'normal' | 'new' // NEW PROP
 }
 
 // Model and Controller Hook
-const useReviewSession = ({ cards, onFinish, userId }: Pick<ReviewSessionProps, "cards" | "onFinish" | "userId">) => {
+const useReviewSession = ({ cards, onFinish, userId, mode }: Pick<ReviewSessionProps, "cards" | "onFinish" | "userId" | "mode">) => {
   // Model
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
@@ -55,6 +56,15 @@ const useReviewSession = ({ cards, onFinish, userId }: Pick<ReviewSessionProps, 
     setShowAnswer(false)
   }
 
+  const handleSkip = () => {
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex(currentIndex + 1)
+      setShowAnswer(false)
+    } else {
+      onFinish()
+    }
+  }
+
   return {
     currentIndex,
     showAnswer,
@@ -63,11 +73,12 @@ const useReviewSession = ({ cards, onFinish, userId }: Pick<ReviewSessionProps, 
     handleQuality,
     handleShowAnswer,
     handleRestart,
+    handleSkip, // NEW
   }
 }
 
 // View
-export function ReviewSession({ cards, deckName, onFinish, onBack, userId }: ReviewSessionProps) {
+export function ReviewSession({ cards, deckName, onFinish, onBack, userId, mode = 'normal' }: ReviewSessionProps) {
   const {
     currentIndex,
     showAnswer,
@@ -76,7 +87,8 @@ export function ReviewSession({ cards, deckName, onFinish, onBack, userId }: Rev
     handleQuality,
     handleShowAnswer,
     handleRestart,
-  } = useReviewSession({ cards, onFinish, userId })
+    handleSkip,
+  } = useReviewSession({ cards, onFinish, userId, mode })
 
   if (!currentCard) {
     return (
@@ -130,6 +142,11 @@ export function ReviewSession({ cards, deckName, onFinish, onBack, userId }: Rev
               <Button onClick={handleShowAnswer} size="lg">
                 Show Answer
               </Button>
+              {mode === 'new' && (
+                <Button onClick={handleSkip} size="lg" variant="outline" className="ml-4">
+                  Skip
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -176,6 +193,13 @@ export function ReviewSession({ cards, deckName, onFinish, onBack, userId }: Rev
                   </div>
                 </Button>
               </div>
+              {mode === 'new' && (
+                <div className="text-center mt-4">
+                  <Button onClick={handleSkip} size="lg" variant="outline">
+                    Skip
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

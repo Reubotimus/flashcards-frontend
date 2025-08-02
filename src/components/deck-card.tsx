@@ -21,9 +21,10 @@ interface DeckCardProps {
   onOpen: () => void
   onDelete: () => void
   onStartReview: () => void
+  onStartNewCardsReview: () => void // NEW PROP
 }
 
-export function DeckCard({ deck, onOpen, onDelete, onStartReview }: DeckCardProps) {
+export function DeckCard({ deck, onOpen, onDelete, onStartReview, onStartNewCardsReview }: DeckCardProps) {
   const todayDate = new Date()
   const cardsToReview = deck.cards.filter(
     (card) => card.repetitions > 0 && new Date(card.nextReview) <= todayDate
@@ -64,6 +65,8 @@ export function DeckCard({ deck, onOpen, onDelete, onStartReview }: DeckCardProp
     }
     return null
   }
+
+  const newCardsCount = deck.cards.filter((card) => card.repetitions === 0).length
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -129,6 +132,10 @@ export function DeckCard({ deck, onOpen, onDelete, onStartReview }: DeckCardProp
           <Button onClick={onStartReview} size="sm" className="flex-1" disabled={cardsToReview === 0}>
             <Play className="h-4 w-4 mr-2" />
             Review
+          </Button>
+          <Button onClick={onStartNewCardsReview} size="sm" className="flex-1" disabled={newCardsCount === 0}>
+            <Play className="h-4 w-4 mr-2" />
+            New Cards
           </Button>
         </div>
       </CardContent>

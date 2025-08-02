@@ -9,6 +9,7 @@ interface ReviewSessionClientProps {
     deckName: string
     deckId: string
     userId: string
+    mode?: 'normal' | 'new'
 }
 
 export function ReviewSessionClient({
@@ -16,6 +17,7 @@ export function ReviewSessionClient({
     deckName,
     deckId,
     userId,
+    mode = 'normal',
 }: ReviewSessionClientProps) {
     const router = useRouter()
     return (
@@ -25,6 +27,7 @@ export function ReviewSessionClient({
             onFinish={() => router.push(`/deck/${deckId}`)}
             onBack={() => router.push(`/deck/${deckId}`)}
             userId={userId}
+            mode={mode}
         />
     )
 } 
